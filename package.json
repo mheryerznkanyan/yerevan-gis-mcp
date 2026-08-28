@@ -1,0 +1,39 @@
+{
+  "name": "yerevan-gis-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Yerevan Municipality GIS portal (gis.yerevan.am) — query parcels, zoning, air quality, transport and other open city datasets from an AI agent",
+  "main": "dist/index.js",
+  "bin": {
+    "yerevan-gis-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "keywords": [
+    "mcp",
+    "arcgis",
+    "gis",
+    "yerevan",
+    "open-data"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
