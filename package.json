@@ -18,6 +18,12 @@
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mheryerznkanyan/yerevan-gis-mcp.git"
+  },
+  "homepage": "https://github.com/mheryerznkanyan/yerevan-gis-mcp#readme",
+  "bugs": "https://github.com/mheryerznkanyan/yerevan-gis-mcp/issues",
   "keywords": [
     "mcp",
     "arcgis",

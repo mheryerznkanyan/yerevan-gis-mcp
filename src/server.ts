@@ -4,6 +4,7 @@ import { registerGenericTools } from "./tools/generic.js";
 import { registerAirQualityTools } from "./tools/airquality.js";
 import { registerCadastreTools } from "./tools/cadastre.js";
 import { registerTransportTools } from "./tools/transport.js";
+import { registerAmenityTools } from "./tools/amenities.js";
 import { registerPortalTools } from "./tools/portal.js";
 
 export interface BuildServerOptions {
@@ -34,6 +35,7 @@ export function buildServer(opts: BuildServerOptions = {}): McpServer {
   registerAirQualityTools(server, client);
   registerCadastreTools(server, client);
   registerTransportTools(server, client);
+  registerAmenityTools(server, client);
   registerPortalTools(server, client);
 
   return server;

@@ -1,10 +1,179 @@
-# yerevan-gis-mcp
+<!-- Header block for project -->
+<hr>
 
-An MCP server over the **Yerevan Municipality GIS portal** ([gis.yerevan.am](https://gis.yerevan.am/portal/home/index.html)) — an ArcGIS Enterprise 11.5 deployment whose ~190 hosted layers and 300+ portal items are served **anonymously, with no token**. This lets an AI agent answer questions about the city — air quality, cadastral parcels, zoning, construction, transport, amenities — by querying the live data.
+<div align="center">
 
-Everything is **read-only**. (See [Security note](#security-note) — the portal itself exposes a few layers with anonymous write; this server never touches them.)
+<h1 align="center">yerevan-gis-mcp</h1>
 
-## Two layers of tools
+</div>
+
+<pre align="center">An MCP server that lets an AI agent query Yerevan's live municipal GIS data — air quality, parcels, zoning, construction, transport — with no API key.</pre>
+
+<!-- Header block for project -->
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)](https://nodejs.org)
+[![MCP](https://img.shields.io/badge/protocol-MCP-orange)](https://modelcontextprotocol.io)
+[![SLIM](https://img.shields.io/badge/Best%20Practices%20from-SLIM-blue)](https://nasa-ammos.github.io/slim/)
+
+This project wraps the **Yerevan Municipality GIS portal** ([gis.yerevan.am](https://gis.yerevan.am/portal/home/index.html)) — an ArcGIS Enterprise 11.5 deployment with ~190 hosted layers and 300+ portal items — in a Model Context Protocol server, so a language model can answer real questions about the city from live data instead of guessing.
+
+It exists because the portal is genuinely open: every layer this server touches is served **anonymously, with no token, no account and no rate limit**. That openness is buried behind an ArcGIS REST API with a bespoke unnamed projection, Armenian free-text categories, non-zero layer ids and numbers-encoded-as-strings. This server absorbs all of that so the model sees clean JSON, WGS84 coordinates and local timestamps.
+
+It is intended for anyone building an AI assistant that needs to reason about Yerevan — urbanists, journalists, civic-tech developers, or a resident asking whether it is safe to go running today. Everything is **read-only**; the server never calls `applyEdits`.
+
+[Yerevan GIS portal](https://gis.yerevan.am/portal/home/index.html) | [Testing report](TESTING.md) | [API notes](API_NOTES.md) | [Feature ideas](FEATURE_IDEAS.md) | [Issue tracker](https://github.com/mheryerznkanyan/yerevan-gis-mcp/issues)
+
+## Features
+
+* **24 tools** over live city data — verified end-to-end against the production portal, see [TESTING.md](TESTING.md)
+* **No credentials of any kind** — no API key, token, account or config file; clone and run
+* **Live air quality** from 222 sensors, plus a 7-day AQI forecast and hourly per-station history
+* **181,341 cadastral parcels** and 12 districts, queryable by cadastral code or by lon/lat
+* **Point-in-polygon lookups** — "what parcel / zone / district is at this coordinate?"
+* **A generic ArcGIS toolbox** that reaches *any* of the portal's ~190 layers, not just the curated ones
+* **The sharp edges handled for you** — WGS84 reprojection from an unnamed source projection, auto-pagination past the 2,000-row server cap, epoch-ms → UTC+4 timestamps, string-encoded numbers, Armenian field aliases
+* **English district names accepted** and mapped to their Armenian equivalents
+* **Sub-second responses** for most tools (1–4 ms for catalog lookups, 330–700 ms for single queries)
+
+## Contents
+
+* [Quick Start](#quick-start)
+* [Tools](#tools)
+* [Notes on the Data](#notes-on-the-data)
+* [Changelog](#changelog)
+* [FAQ](#frequently-asked-questions-faq)
+* [Contributing](#contributing)
+* [License](#license)
+* [Support](#support)
+
+## Quick Start
+
+### Requirements
+
+1. **Node.js 18 or newer** (developed and tested on Node 22)
+2. **npm** (ships with Node)
+3. **Ordinary internet access** to `gis.yerevan.am` — restricted CI or sandbox networks will block the live queries
+4. **An MCP client** — Claude Code, Claude Desktop, Cursor, Zed, or anything else that speaks MCP over stdio
+
+No API key, token or account is required.
+
+### Setup Instructions
+
+1. Clone the repository and enter it:
+
+   ```bash
+   git clone https://github.com/mheryerznkanyan/yerevan-gis-mcp.git
+   cd yerevan-gis-mcp
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+   This also compiles TypeScript to `dist/` automatically via the `prepare` script, so there is no separate build step. Expect ~142 packages in about 10 seconds.
+
+3. Confirm `dist/index.js` now exists:
+
+   ```bash
+   ls dist/index.js
+   ```
+
+### Run Instructions
+
+1. Register the server with your MCP client. For Claude Code, from the repo root:
+
+   ```bash
+   claude mcp add yerevan-gis -- node "$PWD/dist/index.js"
+   ```
+
+   For a client that uses a JSON config file (Claude Desktop, Cursor, Zed), add — **the path must be absolute**:
+
+   ```json
+   {
+     "mcpServers": {
+       "yerevan-gis": {
+         "command": "node",
+         "args": ["/absolute/path/to/yerevan-gis-mcp/dist/index.js"]
+       }
+     }
+   }
+   ```
+
+2. **Restart your MCP client.** Servers are loaded at startup, so a newly registered server will not appear in a session that is already running.
+
+3. Confirm it connected — in Claude Code, `/mcp` should list `yerevan-gis` with 24 tools. Then ask it something: *"What's the air quality near Republic Square?"*
+
+> **Note:** running `node dist/index.js` directly in a terminal will look like it hangs. That is correct behaviour — the server speaks JSON-RPC over stdio and is waiting for input from a client.
+
+### Usage Examples
+
+Ask your assistant questions in plain language; it picks the tool.
+
+**Air quality** — the freshest data on the portal, updated hourly:
+
+* *"What's the air quality near Republic Square right now?"* → nearest station, distance, AQI, PM2.5/PM10/NO₂
+* *"How's Yerevan's air overall?"* → city average across all reporting stations, plus the worst offenders
+* *"Is it getting worse this week?"* → 7-day predicted AQI
+* *"Show me the last 24 hours at that sensor."* → hourly time series
+
+**Cadastre, zoning and construction:**
+
+* *"What parcel and zoning is at 40.1776, 44.5136?"* → cadastral code, district, area in m², land-use designation
+* *"How many buildings are in Erebuni?"* → parcel / building / construction counts for the district
+* *"List active construction sites in Kentron."* → address, developer, permit expiry, coordinates
+
+**Places, transport and addressing:**
+
+* *"Where are the nearest bus stops / metro stations / kindergartens?"*
+* *"Which streets contain Բաղրամյան?"*
+* *"What public dashboards does the municipality publish?"*
+
+**Anything not curated** — the generic toolbox reaches all ~190 layers:
+
+* *"What datasets exist about forests?"* → `search_layers`, then query whatever it returns
+* *"Count parcels grouped by community."* → server-side aggregation
+
+Two things it deliberately cannot do: **resolve a street address to coordinates** (the portal's geocoder requires a token, so you supply lon/lat or an Armenian street name), and **routing or travel time** (not in the data).
+
+### Build Instructions
+
+`npm install` already builds the project. After editing source, rebuild with:
+
+```bash
+npm run build      # tsc → dist/
+npm run typecheck  # type-check without emitting
+```
+
+For iterating without a build step, run the TypeScript directly:
+
+```bash
+npm run dev        # tsx src/index.ts
+```
+
+### Test Instructions
+
+1. **Unit tests** — fully offline, against faked HTTP responses:
+
+   ```bash
+   npm test
+   ```
+
+   Expected: `Test Files 3 passed (3)`, `Tests 23 passed (23)`, in well under a second.
+
+2. **Live smoke test** — hits the real portal, needs normal internet egress:
+
+   ```bash
+   npm run smoke
+   ```
+
+   Expected: `11 passed, 0 failed.` It checks district and parcel counts, WGS84 reprojection, point-in-polygon zoning, grouped aggregation, distinct values, near-point search, Armenian street search, portal search, restricted-layer handling, and that all 34 catalogued layers are describe-able.
+
+A full report of what was verified — including measured latencies, real returned values and the rough edges found — is in [TESTING.md](TESTING.md).
+
+## Tools
 
 **Generic ArcGIS toolbox** — reach any of the portal's layers, catalogued or not:
 
@@ -26,7 +195,7 @@ Everything is **read-only**. (See [Security note](#security-note) — the portal
 |---|---|
 | `get_air_quality` | Current AQI — nearest station to a point, or a city overview |
 | `get_air_quality_forecast` | Predicted city AQI for the coming days |
-| `get_station_history` | Hourly PM/NO2/AQI history for one sensor |
+| `get_station_history` | Hourly PM/NO₂/AQI history for one sensor |
 | `lookup_parcel` | Parcel by cadastral code (full/prefix) or by point |
 | `get_zoning_at_point` | Land-use / zoning designation at a location |
 | `list_construction_projects` | Construction sites/permits by district & status |
@@ -35,75 +204,78 @@ Everything is **read-only**. (See [Security note](#security-note) — the portal
 | `search_street` | Street search by Armenian name (stand-in geocoder) |
 | `list_public_apps` | The municipality's public dashboards & web apps |
 | `search_portal_items` | Search the portal item catalog (non-Esri) |
+| `list_investment_projects` | Municipal investment/development projects |
+| `get_kindergarten_finance` | Kindergarten financing by year (AMD) |
+| `search_heritage` | Monuments and memorial plaques by Armenian keyword |
 | `get_web_map_layers` | Reveal the service URLs behind a public web map/app |
 
-## Setup
+## Notes on the Data
 
-```sh
-npm install
-npm run build
-```
+The client and catalog already handle these; they are documented because they explain the design and will bite you if you query the portal directly.
 
-Register with Claude Code / Claude Desktop:
+* **Custom projection.** Source geometry uses a bespoke Armenia projection with *no wkid*. The client always sends `inSR=4326` and requests `outSR=4326`, so you get normal lon/lat.
+* **Layer ids aren't 0.** Forests = 21, groundwater = 16, monuments = 70/71, named areas = 138; parcels are layer 2 of `Կադաստր_քարտեզ` (buildings = 3). The catalog encodes these; for uncatalogued services call `list_service_layers` first.
+* **Armenian, free text, no coded domains.** Categories are literal Armenian strings, sometimes with trailing `\n` or spaces. Use `get_distinct_values` to find exact spellings before filtering.
+* **Field names are lowercase, aliases are uppercase.** `describe_layer` shows `objectid «OBJECTID»`; SQL must use the lowercase name.
+* **Numbers as strings.** Several air-quality metrics arrive as `"9.29"`, and *missing* is `""` rather than null — parsed defensively.
+* **Epoch-ms dates, UTC.** Rendered in Yerevan local time (UTC+4) by the curated tools.
+* **Pagination.** `maxRecordCount` is 1000–2000; `query_layer` auto-pages up to your `limit`.
+* **Restricted vs missing.** A locked layer answers HTTP 499 "Token Required", surfaced as *restricted* — distinct from *not found*.
+* **No geocoder.** The portal's geocode service needs a token; `search_street` queries the named-roads/toponym layers instead (Armenian input only).
+* **`get_map_image` has little to render.** The portal publishes only 2 MapServers out of 196 services, and neither is a city basemap.
+* **Freshness varies by sensor.** Read each station's `measured_at` rather than assuming every reading is current.
 
-```sh
-claude mcp add yerevan-gis -- node /absolute/path/to/yerevan-gis-mcp/dist/index.js
-```
+## Changelog
 
-Or in an MCP client config:
+This project has not yet cut a tagged release. See the [commit history](https://github.com/mheryerznkanyan/yerevan-gis-mcp/commits/main) for changes, and the [releases page](https://github.com/mheryerznkanyan/yerevan-gis-mcp/releases) once versions are published.
 
-```json
-{
-  "mcpServers": {
-    "yerevan-gis": { "command": "node", "args": ["/absolute/path/to/yerevan-gis-mcp/dist/index.js"] }
-  }
-}
-```
+## Frequently Asked Questions (FAQ)
 
-## Verify against the live API
+1. **Do I need an API key or a gis.yerevan.am account?**
+   - No. Every layer this server reads is served anonymously. There is nothing to configure.
 
-Unit tests run offline (against faked responses):
+2. **Can I ask it about a street address, like "40 Mashtots Avenue"?**
+   - Not directly. The portal's geocoding service requires a token, so this server has no address→coordinate lookup. Supply a lon/lat, or search by Armenian street name with `search_street`.
 
-```sh
-npm test
-```
+3. **The server seems to hang when I run it — is it broken?**
+   - No. MCP servers communicate over stdin/stdout. Silence means it is waiting for a client. Launch it through your MCP client rather than by hand.
 
-The **live** smoke test hits the real portal and needs normal internet egress (it fails from restricted CI/sandbox networks):
+4. **I registered it but my assistant doesn't see the tools.**
+   - Restart the client. MCP servers are loaded at startup, so a server added mid-session will not appear until you restart. Also check that the path in your config is absolute.
 
-```sh
-npm run smoke
-```
+5. **Can it modify city data?**
+   - No. The server is read-only and never calls `applyEdits`. See the security note below.
 
-It checks district/parcel counts, WGS84 reprojection, point-in-polygon zoning, grouped aggregation, distinct values, near-point search, Armenian street search, portal search, restricted-layer handling, and that every catalogued layer is describe-able.
+6. **Is the data live?**
+   - Air quality is, updated hourly. Cadastral, zoning and construction layers are current-state snapshots published by the municipality, without a time dimension.
 
-## Example questions it can answer
+7. **Why are results in Armenian?**
+   - Because the source data is. District names accept English input and are mapped for you, but categories, statuses and names come back as the municipality publishes them.
 
-- "What's the air quality near Republic Square right now?" → `get_air_quality(lon, lat)`
-- "Show me the AQI forecast for this week." → `get_air_quality_forecast`
-- "What parcel and zoning is at 40.18, 44.51?" → `lookup_parcel` + `get_zoning_at_point`
-- "How many buildings are in Erebuni?" → `get_district_profile("Erebuni")`
-- "List active construction sites in Kentron." → `list_construction_projects(district, status)`
-- "Nearest bus stops to my hotel." → `find_nearby_amenities("bus_stop", lon, lat)`
-- "Which streets contain 'Բաղրամյան'?" → `search_street`
-- "What data powers the air-pollution dashboard?" → `list_public_apps` → `get_web_map_layers`
+## Contributing
 
-## Notes on the data (the sharp edges)
+Contributions are welcome — especially additional curated tools, catalog entries for uncatalogued layers, and corrections to the Armenian field documentation.
 
-The client and catalog already handle these, but they explain the design:
+1. Open a [GitHub issue](https://github.com/mheryerznkanyan/yerevan-gis-mcp/issues) describing the change you want to make.
+2. [Fork](https://github.com/mheryerznkanyan/yerevan-gis-mcp/fork) this repository.
+3. Make your changes in your fork. Please keep `npm test` and `npm run typecheck` green, and add a unit test for new parsing or formatting logic.
+4. If you add or change a tool that hits the portal, extend `scripts/smoke.ts` so it is covered by `npm run smoke`.
+5. Open a pull request against `main` and tag the maintainer as reviewer.
 
-- **Custom projection.** Source geometry is a bespoke Armenia projection with *no wkid*. The client always sends `inSR=4326` and requests `outSR=4326`, so you get normal lon/lat.
-- **Layer ids aren't 0.** Forests = 21, groundwater = 16, monuments = 70/71, named areas = 138, parcels = layer 2 (buildings = 3) of `Կադաստր_քարտեզ`. The catalog encodes these; for uncatalogued services use `list_service_layers` first.
-- **Armenian, free text, no coded domains.** Categories are literal Armenian strings (sometimes with trailing `\n`/spaces). Use `get_distinct_values` to find exact spellings before filtering.
-- **Numbers as strings.** Several air-quality metrics come back as `"9.29"` and *missing* as `""` not null — parsed defensively.
-- **Epoch-ms dates, UTC.** Rendered in Yerevan local (UTC+4) by the curated tools.
-- **Pagination.** `maxRecordCount` is 1000–2000; `query_layer` auto-pages up to your `limit`.
-- **Restricted vs missing.** A locked layer answers HTTP 499 "Token Required" — surfaced as *restricted*, distinct from *not found*.
-- **No geocoder.** The portal's geocode service needs a token; `search_street` queries the named-roads/toponym layers instead (Armenian input only).
-
-## Security note
-
-While profiling the portal we found three layers advertising **anonymous** `Create/Update/Delete` capability: `records_v2_4` (live air readings), `Predicted_AQI`, and `Հողամաս_search` (≈185k parcel records). Anyone on the internet could edit those. This server is strictly read-only and never calls `applyEdits`, but the exposure is worth reporting to the portal operators.
+**Working on your first pull request?** See [How to Contribute to an Open Source Project on GitHub](https://kcd.im/pull-request).
 
 ## License
 
-MIT
+Released under the MIT License. See [LICENSE](LICENSE).
+
+## Security Note
+
+While profiling the portal, one layer was observed advertising editing capabilities (`Create/Update/Delete/Uploads`) to anonymous requests in its REST `capabilities` metadata: `Predicted_AQI`. That is a strong signal it *may* accept anonymous edits, but it is **unconfirmed** — proving it would mean attempting a write against live municipal data, which was not done.
+
+A second layer, `Հողամաս_search` (≈185k parcel records), previously advertised the same capabilities; as of 2026-08-28 it returns HTTP 499 "Token Required" and no longer appears in the public service list, so that exposure appears to have been closed. The parcel services currently public are `Query`-only.
+
+This server never calls `applyEdits`. If you are able to reach the portal operators, this is worth reporting to them; please confirm it with them rather than by writing to a live service.
+
+## Support
+
+Maintained by [@mheryerznkanyan](https://github.com/mheryerznkanyan). For questions, bug reports or dataset requests, please open an issue on the [issue tracker](https://github.com/mheryerznkanyan/yerevan-gis-mcp/issues).

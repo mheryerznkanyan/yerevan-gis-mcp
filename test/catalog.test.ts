@@ -19,6 +19,7 @@ describe("catalog integrity", () => {
     expect(findLayer("monuments_national")!.layerId).toBe(70);
     expect(findLayer("monuments_local")!.layerId).toBe(71);
     expect(findLayer("named_areas")!.layerId).toBe(138);
+    expect(findLayer("cemeteries")!.layerId).toBe(12);
     expect(findLayer("parcels")!.layerId).toBe(2);
     expect(findLayer("buildings")!.layerId).toBe(3);
   });

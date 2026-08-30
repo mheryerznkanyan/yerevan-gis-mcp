@@ -15,6 +15,11 @@ const NEARBY_KINDS: Record<string, { key: string; nameFields: string[]; addressF
   hotel: { key: "hotels", nameFields: ["հյուրանոցի__անվանումը"], addressField: "հասցե" },
   construction: { key: "constructions", nameFields: ["description"], addressField: "address" },
   elevator: { key: "elevators", nameFields: ["address"], addressField: "address" },
+  plaque: { key: "memorial_plaques", nameFields: ["name"], addressField: "address" },
+  monument: { key: "monuments_all", nameFields: ["name"], addressField: "address" },
+  cemetery: { key: "cemeteries", nameFields: ["հասցե"], addressField: "հասցե" },
+  substation: { key: "substations", nameFields: ["anun"] },
+  medical_center: { key: "medical_centers", nameFields: ["name_am", "name_fr"], addressField: "add_am" },
 };
 
 export function registerTransportTools(server: McpServer, client: ArcGisClient): void {
