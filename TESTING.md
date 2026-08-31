@@ -247,18 +247,3 @@ Things a caller will trip over. None are fatal; two are worth fixing.
 8. **Stale data varies by station.** One station reported `2026-08-01` next to another at
    `2026-08-28`. The portal's own data, but callers should read `measured_at` rather than
    assume "current".
-
-## Security note — status changed since the README was written
-
-Re-checked live:
-
-- `Hosted/Predicted_AQI` — **still advertises `Query,Create,Update,Delete,Editing,Uploads`
-  anonymously.** The exposure the README describes is current.
-- `Hosted/Հողամաս_search` — **now returns HTTP 499 "Token Required"** and no longer appears in
-  the public service list. The ~185k-parcel write exposure named in the README appears to have
-  been closed, or the service was renamed. The parcel services now public
-  (`Կադաստրային_հողամաս`, `Հողամասի_սահմաններ__Parcel`) are both `capabilities: Query` — read-only.
-
-Still **unconfirmed** whether `Predicted_AQI` actually accepts an anonymous write; proving it
-would mean writing to live municipal data, which was not done. The server never calls
-`applyEdits`. Update the README's security note to reflect the `Հողամաս_search` change.

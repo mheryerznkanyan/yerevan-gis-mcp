@@ -36,7 +36,6 @@ These are just good prompts / agent workflows over the existing 21 tools.
 
 ## Data-quality / civic contributions
 
-- **Report the anonymous-write exposure** on `records_v2_4`, `Predicted_AQI`, and `Հողամաս_search` to the portal operators (see README security note).
 - **Flag the empty metric families** (O3, black carbon, wind, pressure, ambient temp/humidity are schema-only) so consumers don't trust them.
 - **Contribute an English/transliteration layer** for street and district names — everything is Armenian-only today, which limits tourist- and expat-facing uses.
 

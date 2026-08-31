@@ -17,10 +17,10 @@ Append `?f=json` (or `pjson`). FeatureServer `/query` also supports `f=geojson` 
 | Domain | Service | Layer | Rows | Notes |
 |---|---|---|---|---|
 | Air (live) | `Hosted/Device_Joined_NewAPI/FeatureServer` | 0 | 222 | stations ⋈ latest hourly reading |
-| Air (hourly) | `Hosted/records_v2_4/FeatureServer` | 0 | 294k | join `sourceid`=`Devices.code`; **anon write!** |
+| Air (hourly) | `Hosted/records_v2_4/FeatureServer` | 0 | 294k | join `sourceid`=`Devices.code` |
 | Air (archive) | `Hosted/Records_hourly/FeatureServer` | 0 | 596k | pre-2025-08 history, same schema |
 | Air (daily) | `Hosted/Air_Pollution_2024_2025_Live/FeatureServer` | 0 | 105k | 10-char field names |
-| Air (forecast) | `Hosted/Predicted_AQI/FeatureServer` | 0 | 230 | `aqi`,`date_pbl_aqi`; **anon write!** |
+| Air (forecast) | `Hosted/Predicted_AQI/FeatureServer` | 0 | 230 | `aqi`,`date_pbl_aqi` |
 | Air (devices) | `Hosted/Devices/FeatureServer` | 0 | 54 | `globalid`=address, not GUID |
 | Parcels | `Hosted/Կադաստր_քարտեզ/FeatureServer` | **2** | 181k | components rgn/cmm/blk/prc_cc; layer 1=blocks, 3=buildings |
 | Parcels (code) | `Hosted/Կադաստրային_հողամաս/FeatureServer` | 0 | 181k | `code`='01-001-0023-0171'; LIKE prefix works |
@@ -70,10 +70,6 @@ The 12 districts: `01-001` Աջափնյակ, `01-002` Ավան, `01-003` Արա�
 6. **`ORDER BY … DESC` puts NULLs first** (Postgres-backed) — add `WHERE <field> IS NOT NULL` when finding max.
 7. **Armenian spelling traps** in service names, e.g. special-regimes service is `Կառուցապատման_հատուկ_ռեղիմներ2` with **ղ** (and it's token-locked → HTTP 499). Percent-encode every segment.
 8. **Restricted (499) ≠ missing (404)** — the client surfaces them separately.
-
-## Security exposure
-
-Anonymous **Create/Update/Delete** advertised on: `records_v2_4`, `Predicted_AQI`, `Հողամաս_search` (≈185k parcels). Report to the operators.
 
 ## Public apps (item ids)
 

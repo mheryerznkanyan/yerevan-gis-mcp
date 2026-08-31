@@ -249,7 +249,7 @@ This project has not yet cut a tagged release. See the [commit history](https://
    - Restart the client. MCP servers are loaded at startup, so a server added mid-session will not appear until you restart. Also check that the path in your config is absolute.
 
 5. **Can it modify city data?**
-   - No. The server is read-only and never calls `applyEdits`. See the security note below.
+   - No. The server is read-only and never calls `applyEdits`; it only ever issues queries.
 
 6. **Is the data live?**
    - Air quality is, updated hourly. Cadastral, zoning and construction layers are current-state snapshots published by the municipality, without a time dimension.
@@ -272,14 +272,6 @@ Contributions are welcome — especially additional curated tools, catalog entri
 ## License
 
 Released under the MIT License. See [LICENSE](LICENSE).
-
-## Security Note
-
-While profiling the portal, one layer was observed advertising editing capabilities (`Create/Update/Delete/Uploads`) to anonymous requests in its REST `capabilities` metadata: `Predicted_AQI`. That is a strong signal it *may* accept anonymous edits, but it is **unconfirmed** — proving it would mean attempting a write against live municipal data, which was not done.
-
-A second layer, `Հողամաս_search` (≈185k parcel records), previously advertised the same capabilities; as of 2026-08-28 it returns HTTP 499 "Token Required" and no longer appears in the public service list, so that exposure appears to have been closed. The parcel services currently public are `Query`-only.
-
-This server never calls `applyEdits`. If you are able to reach the portal operators, this is worth reporting to them; please confirm it with them rather than by writing to a live service.
 
 ## Support
 
