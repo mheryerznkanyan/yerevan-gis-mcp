@@ -209,6 +209,8 @@ verification report with measured latencies and known rough edges.
 | `get_district_profile` | Parcel / building / construction counts for a district |
 | `find_nearby_amenities` | Nearest bus stops, metro, sensors, bins, kindergartens, hotels… |
 | `search_street` | Street search by Armenian name (stand-in geocoder) |
+| `find_bus_routes` | Bus/trolleybus routes by number, name, or near a point |
+| `get_bus_route` | One route's stops in travel order, with coordinates |
 | `list_public_apps` | The municipality's public dashboards & web apps |
 | `search_portal_items` | Search the portal item catalog (non-Esri) |
 | `list_investment_projects` | Municipal investment/development projects |
@@ -228,6 +230,7 @@ The client and catalog already handle these; they are documented because they ex
 * **Epoch-ms dates, UTC.** Rendered in Yerevan local time (UTC+4) by the curated tools.
 * **Pagination.** `maxRecordCount` is 1000–2000; `query_layer` auto-pages up to your `limit`.
 * **Restricted vs missing.** A locked layer answers HTTP 499 "Token Required", surfaced as *restricted* — distinct from *not found*.
+* **Transit routes come from OpenStreetMap, not the portal.** The portal's `Bus_stops_lots` layer has ~384 stops and no routes at all. `find_bus_routes` / `get_bus_route` read a snapshot baked into `src/data/` (1122 stops, 69 routes, ODbL) — no network call, but also not live. Regenerate with `node scripts/fetch-transit.mjs`. `find_nearby_amenities` still reads the portal layer, so its bus-stop answers are the narrower set.
 * **No geocoder.** The portal's geocode service needs a token; `search_street` queries the named-roads/toponym layers instead (Armenian input only).
 * **`get_map_image` has little to render.** The portal publishes only 2 MapServers out of 196 services, and neither is a city basemap.
 * **Freshness varies by sensor.** Read each station's `measured_at` rather than assuming every reading is current.
