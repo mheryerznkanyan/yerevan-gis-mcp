@@ -25,6 +25,8 @@ It is intended for anyone building an AI assistant that needs to reason about Ye
 
 [Yerevan GIS portal](https://gis.yerevan.am/portal/home/index.html) | [Testing report](TESTING.md) | [API notes](API_NOTES.md) | [Feature ideas](FEATURE_IDEAS.md) | [Issue tracker](https://github.com/mheryerznkanyan/yerevan-gis-mcp/issues)
 
+![Demo](demo.gif)
+
 ## Features
 
 * **24 tools** over live city data — verified end-to-end against the production portal, see [TESTING.md](TESTING.md)
