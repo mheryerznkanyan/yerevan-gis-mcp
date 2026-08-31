@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseVehicle, positionAt } from "../src/tools/yandex-transit.js";
+import { parseVehicle, positionAt, zoomForRadius } from "../src/tools/yandex-transit.js";
 
 /**
  * The fragile part isn't the scrape (that's exercised live), it's the trajectory
@@ -37,6 +37,19 @@ describe("yandex trajectory interpolation", () => {
 
   it("returns null when there are no segments", () => {
     expect(positionAt([], 1000)).toBeNull();
+  });
+
+  // The fleet sweep matches sample zoom to cell size (region reach halves per zoom
+  // from ~7.5 km at z=13); a wrong mapping would over- or under-sample the whole city.
+  it("zoomForRadius covers the cell without over-zooming, clamped to [13,17]", () => {
+    expect(zoomForRadius(7000)).toBe(13); // ~whole-city cell → widest region
+    expect(zoomForRadius(1200)).toBe(16); // ~1 km cell → z16 (measured under the 75 cap downtown)
+    expect(zoomForRadius(50)).toBe(17); // tiny cell → floor
+    expect(zoomForRadius(1e9)).toBe(13); // absurdly large → floor at 13
+    // monotonic: smaller cell never picks a lower zoom
+    for (const [big, small] of [[5000, 2000], [2000, 800], [800, 300]] as const) {
+      expect(zoomForRadius(small)).toBeGreaterThanOrEqual(zoomForRadius(big));
+    }
   });
 
   it("parseVehicle pulls line/type from VehicleMetaData and a live position", () => {

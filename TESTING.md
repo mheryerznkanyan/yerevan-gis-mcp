@@ -158,7 +158,7 @@ await c.close();
 
 ### MCP protocol surface
 
-`tools/list` returns **27 tools**, all with usable schemas:
+`tools/list` returns **28 tools**, all with usable schemas:
 
 ```
 search_layers  describe_layer  list_service_layers  query_layer  count_features
@@ -168,15 +168,19 @@ lookup_parcel  get_zoning_at_point  list_construction_projects  get_district_pro
 find_nearby_amenities  search_street  find_bus_routes  get_bus_route
 list_public_apps  search_portal_items  get_web_map_layers
 list_investment_projects  get_kindergarten_finance  search_heritage
-get_live_transit
+get_live_transit  get_active_fleet
 ```
 
-Every one except `get_live_transit` was called against live portal data. `get_live_transit` is a
-separate case: it does not touch `gis.yerevan.am` at all — it scrapes real-time vehicle positions
-from Yandex Maps through a headless browser (optional `playwright` dependency), which is inherently
-fragile and subject to Yandex's terms of use. It is covered by its own unit tests
-(`test/yandex-transit.test.ts`, the trajectory interpolation) and verified live end-to-end
-(75 vehicles captured in ~4 s), but is deliberately excluded from the portal verification above. (The last three were added to the repo on 2026-08-30, after the
+Every one except `get_live_transit` and `get_active_fleet` was called against live portal data. Those
+two are a separate case: they do not touch `gis.yerevan.am` at all — they scrape real-time vehicle
+positions from Yandex Maps through a headless browser (optional `playwright` dependency), which is
+inherently fragile and subject to Yandex's terms of use. They are covered by their own unit tests
+(`test/yandex-transit.test.ts` — trajectory interpolation and the sweep's zoom↔cell mapping) and
+verified live end-to-end: `get_live_transit` captured 75 vehicles in ~4 s; `get_active_fleet` swept
+the city in ~77 browser loads / ~2 min and enumerated **753 active vehicles** (557 bus, 139 minibus,
+57 trolleybus) — Yandex caps each request at the 75 nearest the centre, so the sweep tiles adaptively
+and de-duplicates by vehicle id to see past that. Both are deliberately excluded from the portal
+verification above. (The last three were added to the repo on 2026-08-30, after the
 main pass; each was smoke-checked individually — 16 investment projects, 8 years of kindergarten
 financing, and a heritage keyword search returning a 17th-century church — but they are not yet
 covered by `npm run smoke`.) Latency: catalog-only tools (`search_layers`,
