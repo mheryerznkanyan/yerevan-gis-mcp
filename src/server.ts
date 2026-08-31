@@ -6,6 +6,7 @@ import { registerCadastreTools } from "./tools/cadastre.js";
 import { registerTransportTools } from "./tools/transport.js";
 import { registerAmenityTools } from "./tools/amenities.js";
 import { registerPortalTools } from "./tools/portal.js";
+import { registerYandexTransitTools } from "./tools/yandex-transit.js";
 
 export interface BuildServerOptions {
   client?: ArcGisClient;
@@ -37,6 +38,7 @@ export function buildServer(opts: BuildServerOptions = {}): McpServer {
   registerTransportTools(server, client);
   registerAmenityTools(server, client);
   registerPortalTools(server, client);
+  registerYandexTransitTools(server);
 
   return server;
 }

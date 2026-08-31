@@ -29,7 +29,8 @@ It is intended for anyone building an AI assistant that needs to reason about Ye
 
 ## Features
 
-* **24 tools** over live city data — verified end-to-end against the production portal, see [TESTING.md](TESTING.md)
+* **27 tools** over live city data — 26 over the municipal portal / OpenStreetMap (verified end-to-end, see [TESTING.md](TESTING.md)), plus one optional live-transit scrape
+* **Live vehicle positions** *(optional)* — real-time bus/trolleybus/minibus locations scraped from Yandex Maps via a headless browser; powerful but fragile and subject to Yandex's terms of use (see the note below)
 * **No credentials of any kind** — no API key, token, account or config file; clone and run
 * **Live air quality** from 222 sensors, plus a 7-day AQI forecast and hourly per-station history
 * **181,341 cadastral parcels** and 12 districts, queryable by cadastral code or by lon/lat
@@ -58,6 +59,7 @@ It is intended for anyone building an AI assistant that needs to reason about Ye
 2. **npm** (ships with Node)
 3. **Ordinary internet access** to `gis.yerevan.am` — restricted CI or sandbox networks will block the live queries
 4. **An MCP client** — Claude Code, Claude Desktop, Cursor, Zed, or anything else that speaks MCP over stdio
+5. *(Optional, only for `get_live_transit`)* the `playwright` package and its Chromium — `npm i playwright && npx playwright install chromium`. Every other tool works without it; the tool returns a clear install hint if it's missing.
 
 No API key, token or account is required.
 
@@ -211,6 +213,7 @@ verification report with measured latencies and known rough edges.
 | `search_street` | Street search by Armenian name (stand-in geocoder) |
 | `find_bus_routes` | Bus/trolleybus routes by number, name, or near a point |
 | `get_bus_route` | One route's stops in travel order, with coordinates |
+| `get_live_transit` | **Live** vehicle positions (bus/trolleybus/minibus), optionally by line — *scraped from Yandex Maps, optional, fragile; see note* |
 | `list_public_apps` | The municipality's public dashboards & web apps |
 | `search_portal_items` | Search the portal item catalog (non-Esri) |
 | `list_investment_projects` | Municipal investment/development projects |
@@ -231,6 +234,7 @@ The client and catalog already handle these; they are documented because they ex
 * **Pagination.** `maxRecordCount` is 1000–2000; `query_layer` auto-pages up to your `limit`.
 * **Restricted vs missing.** A locked layer answers HTTP 499 "Token Required", surfaced as *restricted* — distinct from *not found*.
 * **Transit routes come from OpenStreetMap, not the portal.** The portal's `Bus_stops_lots` layer has ~384 stops and no routes at all. `find_bus_routes` / `get_bus_route` read a snapshot baked into `src/data/` (1122 stops, 69 routes, ODbL) — no network call, but also not live. Regenerate with `node scripts/fetch-transit.mjs`. `find_nearby_amenities` still reads the portal layer, so its bus-stop answers are the narrower set.
+* **Live transit is a Yandex scrape — different in kind, and fragile.** `get_live_transit` is the one tool that does *not* read the municipal portal. There is no public/licensed feed for real-time vehicle positions in Yerevan, so it drives a headless browser to Yandex Maps' transport layer and intercepts the JSON the page fetches (`getVehiclesInfoWithRegion`). Yandex sends no stored position — each vehicle is an animated trajectory of time-stamped segments, so the tool interpolates the current point by wall-clock. Consequences you should know: it needs the optional `playwright` browser; it adds ~2–4 s per call (results are cached ~20 s); Yandex soft-blocks the IP after a burst of rapid calls (you'll get a "rate-limited/changed" error, not a crash); it can break outright whenever Yandex reshapes their site; and automated access is **against Yandex's terms of use** — use it accordingly. Everything else in this server is licensed open municipal data; this one is not.
 * **No geocoder.** The portal's geocode service needs a token; `search_street` queries the named-roads/toponym layers instead (Armenian input only).
 * **`get_map_image` has little to render.** The portal publishes only 2 MapServers out of 196 services, and neither is a city basemap.
 * **Freshness varies by sensor.** Read each station's `measured_at` rather than assuming every reading is current.

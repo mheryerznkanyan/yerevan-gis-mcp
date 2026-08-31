@@ -158,19 +158,25 @@ await c.close();
 
 ### MCP protocol surface
 
-`tools/list` returns **24 tools**, all with usable schemas:
+`tools/list` returns **27 tools**, all with usable schemas:
 
 ```
 search_layers  describe_layer  list_service_layers  query_layer  count_features
 get_distinct_values  query_near_point  aggregate  get_map_image
 get_air_quality  get_air_quality_forecast  get_station_history
 lookup_parcel  get_zoning_at_point  list_construction_projects  get_district_profile
-find_nearby_amenities  search_street  list_public_apps  search_portal_items
-get_web_map_layers
+find_nearby_amenities  search_street  find_bus_routes  get_bus_route
+list_public_apps  search_portal_items  get_web_map_layers
 list_investment_projects  get_kindergarten_finance  search_heritage
+get_live_transit
 ```
 
-Every one was called against live data. (The last three were added to the repo on 2026-08-30, after the
+Every one except `get_live_transit` was called against live portal data. `get_live_transit` is a
+separate case: it does not touch `gis.yerevan.am` at all — it scrapes real-time vehicle positions
+from Yandex Maps through a headless browser (optional `playwright` dependency), which is inherently
+fragile and subject to Yandex's terms of use. It is covered by its own unit tests
+(`test/yandex-transit.test.ts`, the trajectory interpolation) and verified live end-to-end
+(75 vehicles captured in ~4 s), but is deliberately excluded from the portal verification above. (The last three were added to the repo on 2026-08-30, after the
 main pass; each was smoke-checked individually — 16 investment projects, 8 years of kindergarten
 financing, and a heritage keyword search returning a 17th-century church — but they are not yet
 covered by `npm run smoke`.) Latency: catalog-only tools (`search_layers`,
