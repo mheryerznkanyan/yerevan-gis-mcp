@@ -1,4 +1,93 @@
-# Testing report — yerevan-gis-mcp
+# Testing — yerevan-gis-mcp
+
+This document describes the testing architecture for **yerevan-gis-mcp**: what is tested,
+how to run each category manually, and how it runs automatically in CI. The second half is
+a dated verification report from testing every tool against the live portal.
+
+## Testing Categories
+
+- [x] **Static Code Analysis** — TypeScript type checking across the whole source tree
+- [x] **Unit Tests** — offline tests of parsing, formatting and catalog logic
+- [x] **Build Tests** — the project compiles to runnable JavaScript
+- [x] **Integration Tests** — live queries against the real gis.yerevan.am portal
+- [ ] **Security Tests** — dependency advisories only, via `npm audit` (not yet automated)
+- [ ] **Performance Tests** — latency observed ad hoc, not asserted
+
+### Static Code Analysis
+
+- Location: `src/**/*.ts`, config in `tsconfig.json`
+- Purpose: catch type errors and unreachable states before they ship.
+- Running Tests:
+  - Manually: `npm run typecheck`
+  - Automatically:
+    - Frequency: every push and pull request to `main`
+    - Results Location: GitHub Actions → **Test** workflow → `typecheck + unit tests`
+- Contributing:
+  - Framework Used: TypeScript compiler (`tsc --noEmit`)
+  - Tips: prefer narrowing over `as` casts; portal responses are untrusted input and are
+    parsed defensively in `src/arcgis.ts`.
+
+### Unit Tests
+
+- Location: `test/*.test.ts` (`arcgis`, `catalog`, `format`)
+- Purpose: verify request building, response parsing and formatting against faked HTTP
+  responses, with no network access.
+- Running Tests:
+  - Manually: `npm test` — expect `Tests 23 passed (23)` in under a second
+  - Automatically:
+    - Frequency: every push and pull request to `main`, on Node 20 and 22
+    - Results Location: GitHub Actions → **Test** workflow
+- Contributing:
+  - Framework Used: [Vitest](https://vitest.dev)
+  - Tips: add a case for every new parser or formatter, including the portal's awkward
+    values — numbers encoded as strings, `""` for missing, trailing `\n` in Armenian
+    categories, and epoch-ms timestamps.
+
+### Build Tests
+
+- Location: whole project; output to `dist/`
+- Purpose: confirm the server actually compiles to something an MCP client can run.
+- Running Tests:
+  - Manually: `npm run build`, then check `dist/index.js` exists
+  - Automatically:
+    - Frequency: every push and pull request to `main`
+    - Results Location: GitHub Actions → **Test** workflow → `Build` step
+- Contributing:
+  - Framework Used: TypeScript compiler (`tsc`)
+  - Tips: `npm ci` does **not** run the `prepare` script, so CI builds explicitly. Plain
+    `npm install` does run it, which is what the README's setup instructions rely on.
+
+### Integration Tests (live portal)
+
+- Location: `scripts/smoke.ts`
+- Purpose: confirm the server still works against the real portal — that layers exist,
+  ids have not moved, and reprojection and pagination behave.
+- Running Tests:
+  - Manually: `npm run smoke` — expect `11 passed, 0 failed.`
+  - Automatically:
+    - Frequency: **weekly** (Mondays 06:00 UTC) and on manual dispatch — deliberately not
+      on pull requests, since a portal outage is not a broken PR
+    - Results Location: GitHub Actions → **Test** workflow → `live portal smoke test`
+- Contributing:
+  - Framework Used: a plain assertion script, no framework
+  - Tips: the portal changes under us — a layer already vanished behind a token during
+    development — so the weekly run exists to catch upstream drift, not our own bugs.
+    Requires normal internet egress; it will fail from restricted networks.
+
+### Security Tests
+
+- Location: `package-lock.json`
+- Purpose: surface known advisories in dependencies.
+- Running Tests:
+  - Manually: `npm audit`
+  - Automatically: not yet wired into CI; GitHub Dependabot alerts cover the repository.
+- Contributing:
+  - Tips: current advisories are all in dev dependencies (vitest/vite/esbuild) and are not
+    shipped to users — the published `files` list is `dist` only.
+
+---
+
+# Verification report
 
 Verified end-to-end on **2026-08-28** (macOS 15, Node v22.18.0, npm 10.9.3) against the
 live portal at `gis.yerevan.am`. Everything below was actually executed, not inferred.

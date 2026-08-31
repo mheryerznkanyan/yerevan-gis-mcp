@@ -1,0 +1,65 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 06:00 UTC — catches drift in the upstream gis.yerevan.am portal
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Static analysis, build and unit tests. Fully offline — safe on every PR.
+  test:
+    name: typecheck + unit tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Explicit: `npm ci` does not run the `prepare` script, so dist/ would
+      # otherwise never be built here. This doubles as the build test.
+      - name: Build
+        run: npm run build
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+  # The live smoke test hits the real portal, so it must NOT gate pull requests:
+  # a portal outage is not a broken PR. Scheduled weekly instead, to catch the
+  # upstream data changing under us.
+  smoke:
+    name: live portal smoke test
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Smoke test against gis.yerevan.am
+        run: npm run smoke

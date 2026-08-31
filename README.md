@@ -11,6 +11,7 @@
 
 <!-- Header block for project -->
 
+[![Test](https://github.com/mheryerznkanyan/yerevan-gis-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/mheryerznkanyan/yerevan-gis-mcp/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/protocol-MCP-orange)](https://modelcontextprotocol.io)
@@ -171,7 +172,11 @@ npm run dev        # tsx src/index.ts
 
    Expected: `11 passed, 0 failed.` It checks district and parcel counts, WGS84 reprojection, point-in-polygon zoning, grouped aggregation, distinct values, near-point search, Armenian street search, portal search, restricted-layer handling, and that all 34 catalogued layers are describe-able.
 
-A full report of what was verified — including measured latencies, real returned values and the rough edges found — is in [TESTING.md](TESTING.md).
+Both run automatically on every pull request via GitHub Actions (Node 20 and 22); the live smoke test runs
+weekly instead, so an upstream portal outage never blocks a PR.
+
+See [TESTING.md](TESTING.md) for the full testing architecture — each category, how to run it, and a dated
+verification report with measured latencies and known rough edges.
 
 ## Tools
 
