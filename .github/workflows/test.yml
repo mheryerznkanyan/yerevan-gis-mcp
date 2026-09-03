@@ -13,6 +13,11 @@ on:
 permissions:
   contents: read
 
+# CI never calls the live-transit tools, so skip the ~150 MB Chromium download
+# that `npm ci` would otherwise trigger via the postinstall hook.
+env:
+  YEREVAN_GIS_SKIP_BROWSER_DOWNLOAD: "1"
+
 jobs:
   # Static analysis, build and unit tests. Fully offline — safe on every PR.
   test:

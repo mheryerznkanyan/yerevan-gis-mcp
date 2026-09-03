@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { guard, jsonResult, errorResult, type ToolResult } from "../mcp-util.js";
 import { haversineMeters, num } from "../format.js";
+import { launchChromium, BrowserUnavailable } from "../browser.js";
 
 /**
  * LIVE vehicle positions, scraped from Yandex Maps' Yerevan transport layer.
@@ -123,15 +124,6 @@ const UA =
 /** Yandex caps each getVehiclesInfoWithRegion response at the 75 vehicles nearest to `ll`. */
 const PER_CALL_CAP = 75;
 
-async function loadPlaywright(): Promise<any> {
-  try {
-    // @ts-ignore optional peer dep, resolved at runtime only
-    return (await import("playwright")).chromium;
-  } catch {
-    throw new PlaywrightMissing();
-  }
-}
-
 // Yandex returns all vehicles within a zoom-dependent radius, capped at 75.
 // Measured empirically: reach ≈ 7.5 km at z=13 and halves per zoom step.
 const REACH_Z13_M = 7470;
@@ -153,8 +145,7 @@ async function grabAt(page: any, ll: string, z = 13): Promise<any[]> {
 }
 
 async function withPage<T>(fn: (page: any) => Promise<T>): Promise<T> {
-  const chromium = await loadPlaywright();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchChromium();
   try {
     const ctx = await browser.newContext({ locale: "en-US", viewport: { width: 1280, height: 900 }, userAgent: UA });
     return await fn(await ctx.newPage());
@@ -250,12 +241,6 @@ export async function captureFleet(
   });
 }
 
-class PlaywrightMissing extends Error {
-  constructor() {
-    super("playwright not installed");
-  }
-}
-
 export function registerYandexTransitTools(server: McpServer): void {
   server.registerTool(
     "get_live_transit",
@@ -265,8 +250,7 @@ export function registerYandexTransitTools(server: McpServer): void {
         "(no public feed exists). Returns each moving vehicle with its line number, type, current " +
         "lon/lat and heading. Optionally filter by line number. NOTE: this drives a headless browser " +
         "and is inherently fragile — it can break if Yandex changes their site, and is subject to their " +
-        "terms of use. Results are cached ~20s. Requires the optional 'playwright' package + browser " +
-        "(`npx playwright install chromium`).",
+        "terms of use. Results are cached ~20s. The browser it needs is installed automatically.",
       inputSchema: {
         line: z
           .string()
@@ -288,12 +272,7 @@ export function registerYandexTransitTools(server: McpServer): void {
           try {
             vehicles = await captureVehicles(key);
           } catch (err) {
-            if (err instanceof PlaywrightMissing) {
-              return errorResult(
-                "Live transit needs the optional 'playwright' package and a browser. Install with:\n" +
-                  "  npm i playwright && npx playwright install chromium",
-              );
-            }
+            if (err instanceof BrowserUnavailable) return errorResult(err.message);
             return errorResult(
               `Could not capture Yandex live transit (this scrape is fragile and may be rate-limited or changed): ${
                 err instanceof Error ? err.message : String(err)
@@ -322,7 +301,7 @@ export function registerYandexTransitTools(server: McpServer): void {
         "adaptive grid and de-duplicating by vehicle, so it takes a while (~30–90 s, dozens of browser " +
         "loads) and can be partly rate-limited by Yandex. Returns totals plus a breakdown by type and by " +
         "line; set include_vehicles=true for the full per-vehicle list. Same fragile Yandex scrape as " +
-        "get_live_transit; needs the optional 'playwright' package + browser.",
+        "get_live_transit; the browser it needs is installed automatically.",
       inputSchema: {
         include_vehicles: z
           .boolean()
@@ -343,12 +322,7 @@ export function registerYandexTransitTools(server: McpServer): void {
         try {
           result = await captureFleet(undefined, max_tiles ? { maxTiles: max_tiles } : {});
         } catch (err) {
-          if (err instanceof PlaywrightMissing) {
-            return errorResult(
-              "Live transit needs the optional 'playwright' package and a browser. Install with:\n" +
-                "  npm i playwright && npx playwright install chromium",
-            );
-          }
+          if (err instanceof BrowserUnavailable) return errorResult(err.message);
           return errorResult(
             `Could not sweep the Yandex fleet (fragile scrape, may be rate-limited or changed): ${
               err instanceof Error ? err.message : String(err)
