@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseVehicle, positionAt, zoomForRadius } from "../src/tools/yandex-transit.js";
+import { firstMeaningfulLine } from "../src/browser.js";
 
 /**
  * The fragile part isn't the scrape (that's exercised live), it's the trajectory
@@ -64,5 +65,23 @@ describe("yandex trajectory interpolation", () => {
     expect(v.type).toBe("bus");
     expect(v.lon).toBeCloseTo(44.55, 4);
     expect(v.heading).not.toBeNull();
+  });
+});
+
+describe("browser download stderr distillation", () => {
+  it("keeps the first real line, not the closing brace or box borders", () => {
+    const nodeDump = [
+      "",
+      "Error [ERR_SOCKET_CLOSED]: Socket is closed",
+      "    at Socket._writeGeneric (node:net:956:8)",
+      "  code: 'ERR_SOCKET_CLOSED'",
+      "}",
+    ].join("\n");
+    expect(firstMeaningfulLine(nodeDump)).toBe("Error [ERR_SOCKET_CLOSED]: Socket is closed");
+
+    const banner = ["╔════╗", "║ x  ║", "╚════╝", "Error: connect ETIMEDOUT 1.2.3.4:443", "    at TCPConnectWrap"].join("\n");
+    expect(firstMeaningfulLine(banner)).toBe("Error: connect ETIMEDOUT 1.2.3.4:443");
+
+    expect(firstMeaningfulLine("   \n  \n")).toBe(""); // all blank → empty, not a crash
   });
 });

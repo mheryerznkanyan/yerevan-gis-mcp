@@ -81,33 +81,48 @@ function playwrightCli(): string | null {
   return null;
 }
 
-let downloadOnce: Promise<boolean> | null = null;
+type DownloadResult = { ok: boolean; reason?: string };
+let downloadOnce: Promise<DownloadResult> | null = null;
 
-/** `playwright install chromium`, at most once per process. Resolves to success. */
-function downloadChromium(): Promise<boolean> {
-  downloadOnce ??= new Promise<boolean>((resolve) => {
+// playwright dumps a full error object + stack to stderr on failure. Skip the
+// noise (stack frames, bare brackets/braces, the boxed banner, progress dots)
+// and keep the FIRST real message line — the last is just the closing `}`.
+const STDERR_NOISE = /^(at\s|[{}[\]]|[╔║╚═╗╝]|[.·]+$|<\d)/;
+
+/** First diagnostic line out of a multi-line stderr dump, or "" if it's all noise. */
+export function firstMeaningfulLine(stderr: string): string {
+  return (
+    stderr
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !STDERR_NOISE.test(l)) ?? ""
+  );
+}
+
+/** `playwright install chromium`, at most once per process. */
+function downloadChromium(): Promise<DownloadResult> {
+  downloadOnce ??= new Promise<DownloadResult>((resolve) => {
     const cli = playwrightCli();
-    if (!cli) return resolve(false);
+    if (!cli) return resolve({ ok: false, reason: "playwright CLI not found" });
     note("Chromium not found — downloading it once (~150 MB, one time only)…");
     // Both streams captured, never inherited: stdout must never touch our
-    // JSON-RPC channel, and playwright dumps multi-line network stack traces to
-    // stderr on failure — we keep the last meaningful line and drop the rest.
+    // JSON-RPC channel, and stderr's stack-trace spew is distilled to one line.
     const child = spawn(process.execPath, [cli, "install", "chromium"], {
       stdio: ["ignore", "ignore", "pipe"],
     });
-    let errTail = "";
+    let reason = "";
     child.stderr?.on("data", (b: Buffer) => {
-      const lines = (errTail + b.toString()).split("\n").filter((l) => l.trim());
-      errTail = lines[lines.length - 1] ?? errTail; // keep only the latest non-blank line
+      reason ||= firstMeaningfulLine(b.toString()); // first meaningful line wins
     });
-    child.on("error", (e) => {
-      note(`Chromium download failed: ${e.message.split("\n")[0]}`);
-      resolve(false);
-    });
+    child.on("error", (e) => resolve({ ok: false, reason: e.message.split("\n")[0] }));
     child.on("close", (code) => {
-      if (code === 0) note("Chromium installed.");
-      else note(`Chromium download failed${errTail ? `: ${errTail}` : ""}. Everything else still works.`);
-      resolve(code === 0);
+      if (code === 0) {
+        note("Chromium installed.");
+        resolve({ ok: true });
+      } else {
+        note(`Chromium download failed${reason ? `: ${reason}` : ""}. Everything else still works.`);
+        resolve({ ok: false, reason: reason || `exit code ${code}` });
+      }
     });
   });
   return downloadOnce;
@@ -169,9 +184,14 @@ export async function launchChromium(): Promise<any> {
   const bundled = await attempt({}, "bundled Chromium");
   if (bundled) return bundled;
 
-  if (autoInstallAllowed() && (await downloadChromium())) {
-    const fresh = await attempt({}, "bundled Chromium (after download)");
-    if (fresh) return fresh;
+  if (autoInstallAllowed()) {
+    const dl = await downloadChromium();
+    if (dl.ok) {
+      const fresh = await attempt({}, "bundled Chromium (after download)");
+      if (fresh) return fresh;
+    } else if (dl.reason) {
+      tried.push(`auto-download — ${dl.reason}`); // keep the Attempts list a complete account
+    }
   }
 
   for (const channel of FALLBACK_CHANNELS) {
