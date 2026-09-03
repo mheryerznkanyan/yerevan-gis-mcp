@@ -89,13 +89,24 @@ function downloadChromium(): Promise<boolean> {
     const cli = playwrightCli();
     if (!cli) return resolve(false);
     note("Chromium not found — downloading it once (~150 MB, one time only)…");
-    // stdout is 'ignore': the child must never write to our JSON-RPC stream.
+    // Both streams captured, never inherited: stdout must never touch our
+    // JSON-RPC channel, and playwright dumps multi-line network stack traces to
+    // stderr on failure — we keep the last meaningful line and drop the rest.
     const child = spawn(process.execPath, [cli, "install", "chromium"], {
-      stdio: ["ignore", "ignore", "inherit"],
+      stdio: ["ignore", "ignore", "pipe"],
     });
-    child.on("error", () => resolve(false));
+    let errTail = "";
+    child.stderr?.on("data", (b: Buffer) => {
+      const lines = (errTail + b.toString()).split("\n").filter((l) => l.trim());
+      errTail = lines[lines.length - 1] ?? errTail; // keep only the latest non-blank line
+    });
+    child.on("error", (e) => {
+      note(`Chromium download failed: ${e.message.split("\n")[0]}`);
+      resolve(false);
+    });
     child.on("close", (code) => {
       if (code === 0) note("Chromium installed.");
+      else note(`Chromium download failed${errTail ? `: ${errTail}` : ""}. Everything else still works.`);
       resolve(code === 0);
     });
   });

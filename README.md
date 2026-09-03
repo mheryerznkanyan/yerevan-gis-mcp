@@ -55,7 +55,7 @@ It is intended for anyone building an AI assistant that needs to reason about Ye
 
 ### Requirements
 
-1. **Node.js 18 or newer** (developed and tested on Node 22)
+1. **Node.js 20 or newer** (developed and tested on Node 22; CI covers 20 and 22)
 2. **npm** (ships with Node)
 3. **Ordinary internet access** to `gis.yerevan.am` — restricted CI or sandbox networks will block the live queries
 4. **An MCP client** — Claude Code, Claude Desktop, Cursor, Zed, or anything else that speaks MCP over stdio
@@ -209,7 +209,7 @@ Environment variables, for locked-down setups:
    npm run smoke
    ```
 
-   Expected: `11 passed, 0 failed.` It checks district and parcel counts, WGS84 reprojection, point-in-polygon zoning, grouped aggregation, distinct values, near-point search, Armenian street search, portal search, restricted-layer handling, and that all 34 catalogued layers are describe-able.
+   Expected: `11 passed, 0 failed.` It checks district and parcel counts, WGS84 reprojection, point-in-polygon zoning, grouped aggregation, distinct values, near-point search, Armenian street search, portal search, restricted-layer handling, and that all 41 catalogued layers are describe-able.
 
 Both run automatically on every pull request via GitHub Actions (Node 20 and 22); the live smoke test runs
 weekly instead, so an upstream portal outage never blocks a PR.
