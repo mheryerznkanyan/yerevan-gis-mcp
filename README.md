@@ -111,7 +111,7 @@ No API key, token or account is required.
 
 2. **Restart your MCP client.** Servers are loaded at startup, so a newly registered server will not appear in a session that is already running.
 
-3. Confirm it connected — in Claude Code, `/mcp` should list `yerevan-gis` with 24 tools. Then ask it something: *"What's the air quality near Republic Square?"*
+3. Confirm it connected — in Claude Code, `/mcp` should list `yerevan-gis` with 28 tools. Then ask it something: *"What's the air quality near Republic Square?"*
 
 > **Note:** running `node dist/index.js` directly in a terminal will look like it hangs. That is correct behaviour — the server speaks JSON-RPC over stdio and is waiting for input from a client.
 

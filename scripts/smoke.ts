@@ -134,6 +134,7 @@ async function main() {
 
   await check("catalog layers all describe-able", async () => {
     let ok = 0;
+    let restricted = 0; // token-gated layers are expected, not failures
     const problems: string[] = [];
     for (const l of CATALOG) {
       try {
@@ -141,11 +142,13 @@ async function main() {
         if (meta?.name) ok++;
         else problems.push(`${l.key}: no name`);
       } catch (e: any) {
-        problems.push(`${l.key}: ${e?.kind ?? e?.message}`);
+        if (e?.kind === "restricted") restricted++;
+        else problems.push(`${l.key}: ${e?.kind ?? e?.message}`);
       }
     }
-    if (problems.length) console.log("    catalog issues:", problems.join(" | "));
-    return `${ok}/${CATALOG.length} catalog layers OK`;
+    // A check that only logs can't fail — throw so a broken/unreachable portal is caught.
+    if (problems.length) throw new Error(`${problems.length} layer(s) not describe-able: ${problems.join(" | ")}`);
+    return `${ok}/${CATALOG.length} OK${restricted ? ` (${restricted} restricted, expected)` : ""}`;
   });
 
   console.log(`\n${pass} passed, ${fail} failed.`);
