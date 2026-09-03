@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
- * postinstall: make sure the live-transit tools have a browser.
+ * `npm run install:browser` — fetch the headless Chromium the live-transit
+ * tools need, on demand.
  *
- * The Yandex scrape (`get_live_transit`, `get_active_fleet`) drives a headless
- * Chromium. Downloading it here means a plain `git clone && npm install` leaves
- * the server able to answer "how many trolleybuses are running right now?" with
- * no follow-up commands.
+ * This is NOT a postinstall: a plain `npm install` stays fast and quiet, and the
+ * 25 portal tools work with no browser at all. The Yandex scrape tools
+ * (`get_live_transit`, `get_active_fleet`) download Chromium lazily the first
+ * time they run (see src/browser.ts); run this script to pre-fetch it instead of
+ * paying that wait on the first call.
  *
  * We depend on `playwright-core` rather than `playwright` precisely so this stays
  * cheap: playwright's own postinstall pulls Chromium *and* Firefox *and* WebKit

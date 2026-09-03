@@ -21,7 +21,6 @@
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts",
     "prepare": "npm run build",
-    "postinstall": "node scripts/install-browser.mjs",
     "install:browser": "node scripts/install-browser.mjs --force"
   },
   "repository": {

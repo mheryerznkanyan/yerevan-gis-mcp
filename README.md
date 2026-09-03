@@ -30,7 +30,7 @@ It is intended for anyone building an AI assistant that needs to reason about Ye
 ## Features
 
 * **28 tools** over live city data — 26 over the municipal portal / OpenStreetMap (verified end-to-end, see [TESTING.md](TESTING.md)), plus two live-transit scrapes
-* **Live vehicle positions** — real-time bus/trolleybus/minibus locations scraped from Yandex Maps via a headless browser, either near a point (`get_live_transit`) or the *whole* active city fleet de-duplicated across a grid sweep (`get_active_fleet`, ~750 vehicles); the headless browser these need is installed for you by `npm install`, but the scrape itself is fragile and subject to Yandex's terms of use (see the note below)
+* **Live vehicle positions** — real-time bus/trolleybus/minibus locations scraped from Yandex Maps via a headless browser, either near a point (`get_live_transit`) or the *whole* active city fleet de-duplicated across a grid sweep (`get_active_fleet`, ~750 vehicles); the headless browser these need is fetched automatically the first time you use them (nothing to install up front), but the scrape itself is fragile and subject to Yandex's terms of use (see the note below)
 * **No credentials of any kind** — no API key, token, account or config file; clone and run
 * **Live air quality** from 222 sensors, plus a 7-day AQI forecast and hourly per-station history
 * **181,341 cadastral parcels** and 12 districts, queryable by cadastral code or by lon/lat
@@ -59,7 +59,7 @@ It is intended for anyone building an AI assistant that needs to reason about Ye
 2. **npm** (ships with Node)
 3. **Ordinary internet access** to `gis.yerevan.am` — restricted CI or sandbox networks will block the live queries
 4. **An MCP client** — Claude Code, Claude Desktop, Cursor, Zed, or anything else that speaks MCP over stdio
-5. **~150 MB of disk and one extra minute on first install** — `npm install` also downloads a headless Chromium, which the two live-transit tools drive. Nothing to run by hand; see [Live transit needs a browser](#live-transit-needs-a-browser) if your network blocks the download.
+5. *(Optional, only for the two live-transit tools)* **~150 MB of disk for a headless Chromium.** It is **not** downloaded by `npm install` — the transit tools fetch it automatically on first use (or pre-fetch it with `npm run install:browser`). Every other tool works without it. See [Live transit needs a browser](#live-transit-needs-a-browser).
 
 No API key, token or account is required.
 
@@ -78,9 +78,9 @@ No API key, token or account is required.
    npm install
    ```
 
-   One command does everything: ~144 packages in about 10 seconds, a headless Chromium for the live-transit tools (~150 MB, first install only), and a TypeScript build into `dist/` via the `prepare` script. There is no separate build step and nothing else to install — the server is ready to answer *"how many trolleybuses are running right now?"* as soon as this finishes.
+   Fast and self-contained: ~144 packages in about 10 seconds, plus a TypeScript build into `dist/` via the `prepare` script. No browser download, no separate build step — the server is ready as soon as this finishes.
 
-   The Chromium download can never fail the install. If your network blocks it, everything else still works and the transit tools recover on their own — see [Live transit needs a browser](#live-transit-needs-a-browser).
+   The two live-transit tools need a headless Chromium; it is fetched automatically the first time you call one (or run `npm run install:browser` to pre-fetch it). The other 26 tools need nothing further — see [Live transit needs a browser](#live-transit-needs-a-browser).
 
 3. Confirm `dist/index.js` now exists:
 
@@ -163,23 +163,22 @@ npm run dev        # tsx src/index.ts
 ### Live transit needs a browser
 
 `get_live_transit` and `get_active_fleet` drive a headless Chromium — Yandex signs the vehicle
-request from its own JavaScript, so the page has to make it. Getting that browser is handled for
-you at three points, so a plain `git clone && npm install` is normally all it takes:
+request from its own JavaScript, so the page has to make it. **`npm install` does not download it** —
+that keeps install fast, and the other 26 tools never touch a browser. The Chromium is fetched only
+when you first use a transit tool, at three points, so nothing is needed up front:
 
-1. **On install** — a `postinstall` hook downloads Chromium (~150 MB, once). The server depends on
-   `playwright-core` rather than `playwright` so that this fetches *only* Chromium; full Playwright
-   would pull Firefox and WebKit too, for ~500 MB you would never use.
-2. **On first call** — if the browser is missing anyway (you installed offline, or with
-   `--ignore-scripts`), the tool downloads it once, then retries. One download per process, however
-   many calls arrive at once.
-3. **As a fallback** — if the download is blocked, it launches a Chrome-family browser you already
+1. **On first call** — the tool downloads Chromium once (~150 MB), then retries. One download per
+   process, however many calls arrive at once. Depending on `playwright-core` (not full `playwright`)
+   keeps this to *only* Chromium; full Playwright would pull Firefox and WebKit too, ~500 MB you'd
+   never use.
+2. **As a fallback** — if the download is blocked, it launches a Chrome-family browser you already
    have: system Chrome, Chromium, then Edge. In a container or CI runner, where Chromium's own
    sandbox cannot start, it retries with `--no-sandbox`.
 
-Only if all three miss does a transit tool return an error, and it names every route it tried plus
-the one-line fix. The other 26 tools never touch a browser and are unaffected throughout.
+Only if both miss does a transit tool return an error, and it names every route it tried plus the
+one-line fix.
 
-To (re)install the browser by hand:
+Prefer to pay that ~150 MB once, up front, rather than on the first transit call? Pre-fetch it:
 
 ```bash
 npm run install:browser     # → playwright install chromium
@@ -189,9 +188,8 @@ Environment variables, for locked-down setups:
 
 | Variable | Effect |
 | --- | --- |
-| `YEREVAN_GIS_BROWSER_PATH` | Absolute path to a Chrome/Chromium binary. Tried first; skips the search entirely. |
-| `YEREVAN_GIS_SKIP_BROWSER_DOWNLOAD=1` | Don't download during `npm install`. Useful in CI that never calls the transit tools. |
-| `YEREVAN_GIS_NO_AUTO_INSTALL=1` | Never download at call time either — fail with an explanation instead. |
+| `YEREVAN_GIS_BROWSER_PATH` | Absolute path to a Chrome/Chromium binary. Tried first; skips the download and search entirely. |
+| `YEREVAN_GIS_NO_AUTO_INSTALL=1` | Never download at call time — fail with an explanation (and the system-browser fallback) instead. |
 
 ### Test Instructions
 
@@ -270,7 +268,7 @@ The client and catalog already handle these; they are documented because they ex
 * **Pagination.** `maxRecordCount` is 1000–2000; `query_layer` auto-pages up to your `limit`.
 * **Restricted vs missing.** A locked layer answers HTTP 499 "Token Required", surfaced as *restricted* — distinct from *not found*.
 * **Transit routes come from OpenStreetMap, not the portal.** The portal's `Bus_stops_lots` layer has ~384 stops and no routes at all. `find_bus_routes` / `get_bus_route` read a snapshot baked into `src/data/` (1122 stops, 69 routes, ODbL) — no network call, but also not live. Regenerate with `node scripts/fetch-transit.mjs`. `find_nearby_amenities` still reads the portal layer, so its bus-stop answers are the narrower set.
-* **Live transit is a Yandex scrape — different in kind, and fragile.** `get_live_transit` and `get_active_fleet` are the two tools that do *not* read the municipal portal. There is no public/licensed feed for real-time vehicle positions in Yerevan, so they drive a headless browser to Yandex Maps' transport layer and intercept the JSON the page fetches (`getVehiclesInfoWithRegion`). Yandex sends no stored position — each vehicle is an animated trajectory of time-stamped segments, so the tools interpolate the current point by wall-clock. **The catch:** Yandex caps each response at the **75 vehicles nearest the map centre**, so a single call never sees the whole city. `get_active_fleet` gets around that with an adaptive grid sweep — it samples the city at a zoom matched to each cell (the visible region halves in radius per zoom step), subdivides only where the 75-cap is still hit, and de-duplicates by vehicle id; a full Yerevan sweep converges in ~77 browser loads / **1–2 minutes** and finds **~750 active vehicles** (≈550 bus, ≈140 minibus, ≈55 trolleybus). Consequences you should know: both need a headless Chromium, which `npm install` provides; `get_live_transit` adds ~2–4 s per call (cached ~20 s), `get_active_fleet` is much slower; Yandex soft-blocks the IP after a burst of rapid calls (partial sweeps return `complete: false` rather than crashing); it can break outright whenever Yandex reshapes their site; and automated access is **against Yandex's terms of use** — use it accordingly. Everything else in this server is licensed open municipal data; these two are not.
+* **Live transit is a Yandex scrape — different in kind, and fragile.** `get_live_transit` and `get_active_fleet` are the two tools that do *not* read the municipal portal. There is no public/licensed feed for real-time vehicle positions in Yerevan, so they drive a headless browser to Yandex Maps' transport layer and intercept the JSON the page fetches (`getVehiclesInfoWithRegion`). Yandex sends no stored position — each vehicle is an animated trajectory of time-stamped segments, so the tools interpolate the current point by wall-clock. **The catch:** Yandex caps each response at the **75 vehicles nearest the map centre**, so a single call never sees the whole city. `get_active_fleet` gets around that with an adaptive grid sweep — it samples the city at a zoom matched to each cell (the visible region halves in radius per zoom step), subdivides only where the 75-cap is still hit, and de-duplicates by vehicle id; a full Yerevan sweep converges in ~77 browser loads / **1–2 minutes** and finds **~750 active vehicles** (≈550 bus, ≈140 minibus, ≈55 trolleybus). Consequences you should know: both need a headless Chromium, fetched automatically on first use (not during `npm install`); `get_live_transit` adds ~2–4 s per call (cached ~20 s), `get_active_fleet` is much slower; Yandex soft-blocks the IP after a burst of rapid calls (partial sweeps return `complete: false` rather than crashing); it can break outright whenever Yandex reshapes their site; and automated access is **against Yandex's terms of use** — use it accordingly. Everything else in this server is licensed open municipal data; these two are not.
 * **No geocoder.** The portal's geocode service needs a token; `search_street` queries the named-roads/toponym layers instead (Armenian input only).
 * **`get_map_image` has little to render.** The portal publishes only 2 MapServers out of 196 services, and neither is a city basemap.
 * **Freshness varies by sensor.** Read each station's `measured_at` rather than assuming every reading is current.
@@ -303,7 +301,7 @@ This project has not yet cut a tagged release. See the [commit history](https://
    - Because the source data is. District names accept English input and are mapped for you, but categories, statuses and names come back as the municipality publishes them.
 
 8. **A live-transit tool says there's no usable browser. What do I run?**
-   - `npm run install:browser`. That said, you should rarely see this: `npm install` downloads Chromium, the tool retries the download on first use, and it falls back to any system Chrome or Edge. The error lists every route it tried, which usually points at a proxy blocking `playwright.azureedge.net`. If you already have a Chrome binary, skip the download entirely with `YEREVAN_GIS_BROWSER_PATH=/path/to/chrome`. See [Live transit needs a browser](#live-transit-needs-a-browser).
+   - `npm run install:browser`. That said, you should rarely see this: the tool downloads Chromium on first use, retries, and falls back to any system Chrome or Edge. The error lists every route it tried, which usually points at a proxy blocking `playwright.azureedge.net`. If you already have a Chrome binary, skip the download entirely with `YEREVAN_GIS_BROWSER_PATH=/path/to/chrome`. See [Live transit needs a browser](#live-transit-needs-a-browser).
 
 ## Contributing
 
